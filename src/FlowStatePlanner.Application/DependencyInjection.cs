@@ -1,3 +1,4 @@
+using FlowStatePlanner.Application.DailyPlans;
 using FlowStatePlanner.Application.RoutineTemplates;
 using FlowStatePlanner.Application.TaskItems;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,6 +11,8 @@ public static class DependencyInjection
     {
         services.AddScoped<ITaskItemService, TaskItemService>();
         services.AddScoped<IRoutineTemplateService, RoutineTemplateService>();
+        services.AddScoped<IRecurrenceRuleMatcher, RecurrenceRuleMatcher>();
+        services.AddScoped<IDailyPlanService, DailyPlanService>();
         return services;
     }
 }

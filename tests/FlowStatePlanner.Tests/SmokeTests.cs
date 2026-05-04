@@ -1,3 +1,5 @@
+using Xunit;
+
 namespace FlowStatePlanner.Tests;
 
 public class SmokeTests

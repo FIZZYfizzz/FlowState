@@ -1,3 +1,4 @@
+using FlowStatePlanner.Application.Calendar;
 using FlowStatePlanner.Application.DailyPlans;
 using FlowStatePlanner.Application.RoutineTemplates;
 using FlowStatePlanner.Application.TaskItems;
@@ -13,6 +14,7 @@ public static class DependencyInjection
         services.AddScoped<IRoutineTemplateService, RoutineTemplateService>();
         services.AddScoped<IRecurrenceRuleMatcher, RecurrenceRuleMatcher>();
         services.AddScoped<IDailyPlanService, DailyPlanService>();
+        services.AddScoped<ICalendarSummaryService, CalendarSummaryService>();
         return services;
     }
 }

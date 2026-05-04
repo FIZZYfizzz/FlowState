@@ -1,3 +1,5 @@
+using FlowStatePlanner.Application.Abstractions;
+using FlowStatePlanner.Infrastructure.Identity;
 using FlowStatePlanner.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -12,9 +14,14 @@ public static class DependencyInjection
         var connectionString = configuration.GetConnectionString("Postgres")
             ?? throw new InvalidOperationException("Connection string 'Postgres' was not found.");
 
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUserService, DevelopmentCurrentUserService>();
+
         services.AddDbContext<FlowStatePlannerDbContext>(options =>
             options.UseNpgsql(connectionString, npgsql =>
                 npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "planner")));
+
+        services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<FlowStatePlannerDbContext>());
 
         return services;
     }

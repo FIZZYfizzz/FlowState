@@ -1,9 +1,10 @@
+using FlowStatePlanner.Application.Abstractions;
 using FlowStatePlanner.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace FlowStatePlanner.Infrastructure.Persistence;
 
-public class FlowStatePlannerDbContext(DbContextOptions<FlowStatePlannerDbContext> options) : DbContext(options)
+public class FlowStatePlannerDbContext(DbContextOptions<FlowStatePlannerDbContext> options) : DbContext(options), IApplicationDbContext
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<TaskItem> TaskItems => Set<TaskItem>();

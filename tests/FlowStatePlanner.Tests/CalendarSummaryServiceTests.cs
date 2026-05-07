@@ -49,6 +49,42 @@ public class CalendarSummaryServiceTests
     }
 
     [Fact]
+    public async Task Existing_DailyPlan_Separates_OneOff_And_Recurring_TaskItem_Counts()
+    {
+        var (service, db) = Create();
+        var oneOff = new TaskItem { UserId = UserA, Title = "one-off", TaskType = TaskType.OneOff };
+        var recurring = new TaskItem
+        {
+            UserId = UserA,
+            Title = "recurring",
+            TaskType = TaskType.Recurring,
+            RecurrenceRule = "DAILY"
+        };
+        var carriedRecurring = new TaskItem
+        {
+            UserId = UserA,
+            Title = "carry recurring",
+            TaskType = TaskType.Recurring,
+            RecurrenceRule = "DAILY"
+        };
+        db.TaskItems.AddRange(oneOff, recurring, carriedRecurring);
+
+        var plan = new DailyPlan { UserId = UserA, PlanDate = new DateOnly(2026, 5, 4) };
+        plan.Items.Add(new DailyPlanItem { Title = oneOff.Title, SourceType = DailyPlanItemSourceType.TaskItem, TaskItem = oneOff });
+        plan.Items.Add(new DailyPlanItem { Title = recurring.Title, SourceType = DailyPlanItemSourceType.TaskItem, TaskItem = recurring });
+        plan.Items.Add(new DailyPlanItem { Title = carriedRecurring.Title, SourceType = DailyPlanItemSourceType.CarryForward, TaskItem = carriedRecurring });
+        db.DailyPlans.Add(plan);
+        await db.SaveChangesAsync();
+
+        var day = (await service.GetWeekSummaryAsync(new DateOnly(2026, 5, 4))).Days.Single(x => x.Date == new DateOnly(2026, 5, 4));
+        Assert.Equal(1, day.DueOneOffTaskCount);
+        Assert.Equal(1, day.RecurringTaskCount);
+        Assert.Contains(day.PreviewItems, x => x.Title == "one-off" && x.SourceType == "TaskItem");
+        Assert.Contains(day.PreviewItems, x => x.Title == "recurring" && x.SourceType == "RecurringTask");
+        Assert.Contains(day.PreviewItems, x => x.Title == "carry recurring" && x.SourceType == "CarryForward");
+    }
+
+    [Fact]
     public async Task NoPlan_Uses_Projected_OneOff_Count()
     {
         var (service, db) = Create();
@@ -78,6 +114,42 @@ public class CalendarSummaryServiceTests
         var week = await service.GetWeekSummaryAsync(new DateOnly(2026, 5, 4));
         Assert.Equal(1, week.Days.Single(x => x.Date == new DateOnly(2026, 5, 4)).RecurringTaskCount);
         Assert.Equal(0, week.Days.Single(x => x.Date == new DateOnly(2026, 5, 5)).RecurringTaskCount);
+    }
+
+    [Fact]
+    public async Task Done_Recurring_Task_Is_Excluded_From_Projected()
+    {
+        var (service, db) = Create();
+        db.TaskItems.Add(new TaskItem
+        {
+            UserId = UserA,
+            Title = "done recurring",
+            TaskType = TaskType.Recurring,
+            RecurrenceRule = "DAILY",
+            Status = FlowStatePlanner.Domain.Entities.TaskStatus.Done
+        });
+        await db.SaveChangesAsync();
+
+        var day = (await service.GetWeekSummaryAsync(new DateOnly(2026, 5, 4))).Days.Single(x => x.Date == new DateOnly(2026, 5, 4));
+        Assert.Equal(0, day.RecurringTaskCount);
+    }
+
+    [Fact]
+    public async Task Archived_Recurring_Task_Is_Excluded_From_Projected()
+    {
+        var (service, db) = Create();
+        db.TaskItems.Add(new TaskItem
+        {
+            UserId = UserA,
+            Title = "archived recurring",
+            TaskType = TaskType.Recurring,
+            RecurrenceRule = "DAILY",
+            Status = FlowStatePlanner.Domain.Entities.TaskStatus.Archived
+        });
+        await db.SaveChangesAsync();
+
+        var day = (await service.GetWeekSummaryAsync(new DateOnly(2026, 5, 4))).Days.Single(x => x.Date == new DateOnly(2026, 5, 4));
+        Assert.Equal(0, day.RecurringTaskCount);
     }
 
     [Fact]

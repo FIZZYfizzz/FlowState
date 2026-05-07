@@ -44,6 +44,10 @@ Initial backend foundation for FlowState Planner built as a modular monolith usi
 5. Open Swagger in development:
    - `https://localhost:xxxx/swagger`
 
+## Continuous integration
+
+GitHub Actions verifies the backend with the `.github/workflows/backend-ci.yml` workflow on pull requests targeting `main` and pushes to `main`. The workflow runs on `ubuntu-latest`, installs .NET 8, restores `FlowStatePlanner.sln`, builds it in Release mode, and runs the solution tests. NuGet package caching is enabled with `actions/cache` using the solution and project files as the cache key inputs.
+
 ## Notes
 
 - Authentication is intentionally scaffolded, not fully implemented.

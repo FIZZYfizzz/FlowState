@@ -1,0 +1,40 @@
+name: Backend CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  backend:
+    name: Restore, build, and test backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('FlowStatePlanner.sln', 'src/**/*.csproj', 'tests/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore backend
+        run: dotnet restore FlowStatePlanner.sln
+
+      - name: Build backend
+        run: dotnet build FlowStatePlanner.sln --configuration Release --no-restore
+
+      - name: Test backend
+        run: dotnet test FlowStatePlanner.sln --configuration Release --no-build --verbosity normal

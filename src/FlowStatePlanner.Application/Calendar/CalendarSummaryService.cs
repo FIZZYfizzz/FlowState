@@ -44,7 +44,8 @@ public sealed class CalendarSummaryService(IApplicationDbContext dbContext, ICur
 
         var plans = await dbContext.DailyPlans
             .Where(x => x.UserId == userId && x.PlanDate >= start && x.PlanDate <= end)
-            .Select(x => new { x.Id, x.PlanDate, Items = x.Items.Where(i => !i.IsDeleted).ToList() })
+            .Include(x => x.Items.Where(i => !i.IsDeleted))
+            .ThenInclude(i => i.TaskItem)
             .ToListAsync(cancellationToken);
 
         var oneOffTasks = await dbContext.TaskItems
@@ -52,7 +53,11 @@ public sealed class CalendarSummaryService(IApplicationDbContext dbContext, ICur
             .ToListAsync(cancellationToken);
 
         var recurringTasks = await dbContext.TaskItems
-            .Where(x => x.UserId == userId && !x.IsDeleted && x.TaskType == TaskType.Recurring)
+            .Where(x => x.UserId == userId
+                && !x.IsDeleted
+                && x.TaskType == TaskType.Recurring
+                && x.Status != FlowStatePlanner.Domain.Entities.TaskStatus.Done
+                && x.Status != FlowStatePlanner.Domain.Entities.TaskStatus.Archived)
             .ToListAsync(cancellationToken);
 
         var templates = await dbContext.RoutineTemplates
@@ -67,7 +72,12 @@ public sealed class CalendarSummaryService(IApplicationDbContext dbContext, ICur
         {
             if (planLookup.TryGetValue(d, out var plan))
             {
-                var ordered = plan.Items.OrderBy(i => i.PlannedStartTime.HasValue ? 0 : 1).ThenBy(i => i.PlannedStartTime).ThenBy(i => i.SortOrder).ToList();
+                var ordered = plan.Items
+                    .Where(i => !i.IsDeleted)
+                    .OrderBy(i => i.PlannedStartTime.HasValue ? 0 : 1)
+                    .ThenBy(i => i.PlannedStartTime)
+                    .ThenBy(i => i.SortOrder)
+                    .ToList();
                 summaries.Add(new CalendarDaySummaryResponse
                 {
                     Date = d,
@@ -78,11 +88,11 @@ public sealed class CalendarSummaryService(IApplicationDbContext dbContext, ICur
                     TotalPlannedItemCount = ordered.Count,
                     CompletedItemCount = ordered.Count(i => i.IsCompleted),
                     IncompleteItemCount = ordered.Count(i => !i.IsCompleted),
-                    DueOneOffTaskCount = ordered.Count(i => i.SourceType == DailyPlanItemSourceType.TaskItem),
-                    RecurringTaskCount = 0,
+                    DueOneOffTaskCount = ordered.Count(i => i.SourceType == DailyPlanItemSourceType.TaskItem && i.TaskItem?.TaskType == TaskType.OneOff),
+                    RecurringTaskCount = ordered.Count(i => i.SourceType == DailyPlanItemSourceType.TaskItem && i.TaskItem?.TaskType == TaskType.Recurring),
                     RoutineBlockCount = ordered.Count(i => i.SourceType == DailyPlanItemSourceType.RoutineBlock),
                     HasActiveRoutine = ordered.Any(i => i.SourceType == DailyPlanItemSourceType.RoutineBlock),
-                    PreviewItems = ordered.Take(MaxPreviewItems).Select(i => new CalendarPreviewItemResponse { Title = i.Title, SourceType = i.SourceType.ToString(), StartTime = i.PlannedStartTime, IsCompleted = i.IsCompleted }).ToList()
+                    PreviewItems = ordered.Take(MaxPreviewItems).Select(i => new CalendarPreviewItemResponse { Title = i.Title, SourceType = GetPreviewSourceType(i), StartTime = i.PlannedStartTime, IsCompleted = i.IsCompleted }).ToList()
                 });
                 continue;
             }
@@ -114,6 +124,16 @@ public sealed class CalendarSummaryService(IApplicationDbContext dbContext, ICur
         }
 
         return summaries;
+    }
+
+    private static string GetPreviewSourceType(DailyPlanItem item)
+    {
+        if (item.SourceType != DailyPlanItemSourceType.TaskItem)
+        {
+            return item.SourceType.ToString();
+        }
+
+        return item.TaskItem?.TaskType == TaskType.Recurring ? "RecurringTask" : "TaskItem";
     }
 
     private bool SafeMatches(string? recurrenceRule, DateOnly date)

@@ -84,11 +84,21 @@ A `.env.example` file documents the local development database variables. Do not
    dotnet ef database update --project src/FlowStatePlanner.Infrastructure --startup-project src/FlowStatePlanner.Api
    ```
 
-4. Run the API:
+4. Run the API in Development mode. Development mode loads `src/FlowStatePlanner.Api/appsettings.Development.json`, whose local PostgreSQL credentials match `docker-compose.yml`.
+
+   macOS/Linux:
 
    ```bash
-   dotnet run --project src/FlowStatePlanner.Api
+   ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/FlowStatePlanner.Api
    ```
+
+   Windows PowerShell:
+
+   ```powershell
+   $env:ASPNETCORE_ENVIRONMENT="Development"; dotnet run --project src/FlowStatePlanner.Api
+   ```
+
+   The API project also includes a `FlowStatePlanner.Api` launch profile that sets `ASPNETCORE_ENVIRONMENT=Development` for local `dotnet run` and IDE launches.
 
 5. Verify health:
 
